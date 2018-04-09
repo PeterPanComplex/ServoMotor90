@@ -1,4 +1,5 @@
 #include <Servo.h>
+#include <LiquidCrystal.h>
 
 /* Detects patterns of knocks and triggers a motor to unlock
    it if the pattern is correct.
@@ -26,6 +27,7 @@ const int lockMotor = 3;           // Gear motor used to turn the lock.
 const int redLED = 4;              // Status LED
 const int greenLED = 5;            // Status LED
 const int servoPin = 7;
+LiquidCrystal lcd(13, 12, 11, 10, 9, 8);
 int angle = 0; // servo position in degrees 
 
  
@@ -47,9 +49,9 @@ int secretCode2[maximumKnocks] = {50, 25, 25, 50, 100, 50, 0, 0, 0, 0, 0, 0, 0, 
 int secretCode3[maximumKnocks] = {50, 25, 25, 50, 100, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int knockReadings[maximumKnocks];   // When someone knocks this array fills with delays between knocks.
 int knockSensorValue = 0;           // Last reading of the knock sensor.
-int programButtonPressed = false;   // Flag so we remember the programming button setting at the end of the cycle.
+int WhoYouAre = 0;
 
-boolean validateKnock();
+int validateKnock();
 
 void setup() {
   pinMode(lockMotor, OUTPUT);
@@ -59,7 +61,6 @@ void setup() {
   servo.attach(servoPin);
   
   Serial.begin(9600);               			// Uncomment the Serial.bla lines for debugging.
-  Serial.println("Program start.");  			// but feel free to comment them out after it's working right.
   
   digitalWrite(greenLED, HIGH);      // Green LED on, everything is go.
 }
@@ -74,7 +75,7 @@ void loop() {
 
 // Records the timing of knocks.
 void listenToSecretKnock(){
-  Serial.println("knock starting");   
+  //Serial.println("knock starting");   
   int i = 0;
   // First lets reset the listening array.
   for (i=0;i<maximumKnocks;i++){
@@ -93,7 +94,6 @@ void listenToSecretKnock(){
     knockSensorValue = analogRead(knockSensor);
     if (knockSensorValue >=threshold){                   //got another knock...
       //record the delay time.
-      Serial.println("knock.");
       now=millis();
       knockReadings[currentKnockNumber] = now-startTime;
       currentKnockNumber ++;                             //increment the counter
@@ -110,11 +110,20 @@ void listenToSecretKnock(){
   } while ((now-startTime < knockComplete) && (currentKnockNumber < maximumKnocks));
   
   //we've got our knock recorded, lets see if it's valid
-    if (validateKnock() == true){
-      triggerDoorUnlock(); 
-    } 
+    if(validateKnock() == 1)
+    {
+      triggerDoorUnlock(1); 
+    }
+    else if(validateKnock() == 2)
+    {
+      triggerDoorUnlock(2); 
+    }
+    else if(validateKnock() == 3)
+    {
+      triggerDoorUnlock(3); 
+    }
     else {
-      Serial.println("Secret knock failed.");
+      lcd.print("Secret knock failed.");
       digitalWrite(greenLED, LOW);  		// We didn't unlock, so blink the red LED as visual feedback.
       for (i=0;i<4;i++){					
         digitalWrite(redLED, HIGH);
@@ -123,27 +132,46 @@ void listenToSecretKnock(){
         delay(100);
       }
       digitalWrite(greenLED, HIGH);
-    }  
+    }
+    lcd.noDisplay();  
 }
 
 
 // Runs the motor (or whatever) to unlock the door.
-void triggerDoorUnlock(){
-  Serial.println("Door unlocked!");
-  int i=0 ;
-  
+void triggerDoorUnlock(int WhoYouAre){
+  int i=0 ;  
   // rotate from 0 to 180 degrees
   for(angle = 0; angle < 95; angle++) 
   { 
       servo.write(angle); 
       delay(30); 
   }
-  for (i=0; i < 5; i++){   
+  unsigned long startLCD = millis();
+  while(millis() < startLCD + 5000){
+    if(WhoYouAre == 1)
+    {
+      lcd.print("Kim Doyeon");
+    }
+    else if(WhoYouAre == 2)
+    {
+      lcd.print("Bae Euibin");
+    }
+    else if(WhoYouAre == 3)
+    {
+      lcd.print("Lee Jieon");
+    }
+    unsigned long starton = millis();
+    while (millis() < starton + 500){   
       digitalWrite(greenLED, LOW);
-      delay(500);
+    }
+    unsigned long startoff = millis();
+    while (millis() < startoff + 500)
+    {
       digitalWrite(greenLED, HIGH);
-      delay(500);
+    }
   }
+  lcd.noDisplay();
+  
   for(angle=95; angle >=0; angle--){    // goes from 180 degrees to 0 degrees
     servo.write(angle);
     delay(30); 
@@ -153,7 +181,7 @@ void triggerDoorUnlock(){
 // Sees if our knock matches the secret.
 // returns true if it's a good knock, false if it's not.
 // todo: break it into smaller functions for readability.
-boolean validateKnock(){
+int validateKnock(){
   int i=0;
  
   // simplest check first: Did we get the right number of knocks?
@@ -236,7 +264,18 @@ boolean validateKnock(){
   }
   if(Allmismatch == 3)
   {
-    return false;  
+    return 0;  
   }
-  return true;  
+  if(mismatch1 == 0)
+  {
+    return 1;
+  }
+  else if(mismatch2 == 0)
+  {
+    return 2;
+  }
+  else if(mismatch3 == 0)
+  {
+    return 3;
+  }  
 }
